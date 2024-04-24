@@ -152,16 +152,16 @@ def copy(secret):
 
 		match term.inkey().lower():
 			case "0":
-				run(["qdbus", "org.kde.klipper", "/klipper", "org.kde.klipper.klipper.setClipboardContents", secret])
+				run(["qdbus6", "org.kde.klipper", "/klipper", "org.kde.klipper.klipper.setClipboardContents", secret])
 			case "1":
 				cprint("Generating OATH code...", "yellow", end=" ")
 				secret = run(["oathtool", "-b", "--totp", "-"], failure="Could not determine OATH value", i=secret)
 				if not secret: return
 				cprint("Done", "green")
-				run(["qdbus", "org.kde.klipper", "/klipper", "org.kde.klipper.klipper.setClipboardContents", secret])
+				run(["qdbus6", "org.kde.klipper", "/klipper", "org.kde.klipper.klipper.setClipboardContents", secret])
 			case _: input(colored("Invalid selection", "red"))
 	input(colored("Copied to clipboard! Press enter to expunge! ", "blue"))
-	run(["qdbus", "org.kde.klipper", "/klipper", "org.kde.klipper.klipper.clearClipboardHistory"])
+	run(["qdbus6", "org.kde.klipper", "/klipper", "org.kde.klipper.klipper.clearClipboardHistory"])
 
 
 def encrypt(clipboard=False):

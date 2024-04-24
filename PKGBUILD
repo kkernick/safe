@@ -5,7 +5,7 @@ pkgrel=1
 
 source=("git+https://github.com/kkernick/safe.git")
 sha256sums=("SKIP")
-depends=(systemd clevis openssl python-blessed python-termcolor gocryptfs sudo sha512sum oath-toolkit plasma-workspace qdbus shred)
+depends=(systemd clevis openssl python-blessed python-termcolor gocryptfs sudo oath-toolkit plasma-workspace qt6-tools)
 optdepends=(handle-tpm)
 arch=("any")
 provides=("safe-tpm2")
