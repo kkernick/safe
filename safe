@@ -1,0 +1,257 @@
+#!/bin/python
+
+from blessed import Terminal
+from os import system, path, makedirs, rmdir, environ
+from termcolor import cprint, colored
+from signal import signal, SIGINT, SIGTERM
+from hashlib import sha512
+from getpass import getpass
+from subprocess import run as sub_run
+from pathlib import Path
+from argparse import ArgumentParser
+
+parser = ArgumentParser(prog="safe", description="Securely store secrets")
+parser.add_argument("-p", "--path", default=Path(environ["XDG_DATA_HOME"], "safe").resolve(), help="Path to safe")
+parser.add_argument("-m", "--mount", default=Path(environ["XDG_CACHE_HOME"], "safe").resolve(), help="Mount directory")
+parser.add_argument("-a", "--address", help="Specify a TPM address to fetch decryption key")
+parser.add_argument("-r", "--rounds", default ="500000", help="Specify rounds to perform on encryption/decryption")
+
+term = Terminal()
+args = parser.parse_args()
+
+VAULT=Path(args.path).resolve()
+if not path.exists(VAULT): makedirs(VAULT)
+
+MOUNT=Path(args.mount).resolve()
+
+MASTER_KEY=None
+TPM=0
+PCR='{}'
+GENERATOR=0
+
+def run(cmd, failure=None, exit=False, expected=0, i=None):
+	output = sub_run(cmd, capture_output=True, text=True, input=i)
+	if output.returncode != expected:
+		if failure is not None: input(colored(f"{failure}: {output.stderr}", "red"))
+		if exit: cleanup()
+		return None
+	return output.stdout.replace("\n", "")
+
+
+def error(message):
+	cprint(message, "red")
+	cleanup()
+
+
+def setup():
+	# Setup the vault
+	cprint("Setting up Vault...", "yellow")
+	unmount()
+
+
+	if not path.exists(VAULT):
+		error(f"Vault location {VAULT} does not exist!")
+
+	if not path.exists(MOUNT):
+		cprint(f"Creating temporary mount at {MOUNT}...", "yellow", end=" ")
+		try:
+			makedirs(MOUNT)
+			cprint("Done!", "green")
+		except PermissionError:
+			error(f"Could not create mount point at {MOUNT}")
+
+
+	if args.address is None:
+		while True:
+			run(["gocryptfs", VAULT, MOUNT], i=run(["systemd-ask-password", "Enter the vault password"]))
+			if path.ismount(MOUNT): break
+			cprint("Please try again", "red")
+	else:  
+		key = run(["sudo", "handle.tpm", "-m", "unseal", "-a", args.address, "-n"], failure="Could not unseal key from tpm!")
+		mount = run(["gocryptfs", VAULT, MOUNT], failure="Sealed key is not valid!", exit=True, i=key)
+
+
+def unmount():
+	if path.ismount(MOUNT):
+		cprint("Unmounting...", "yellow", end=" ")
+		run(["umount", MOUNT], failure="Could not unmount! This is a security hole!")
+		cprint("Done!", "green")
+
+
+def cleanup(sig=None, frame=None):
+	cprint("Cleaning up...", "yellow")
+	unmount()
+	cprint("Goodbye!", "green")
+	exit(0)
+
+
+def menu():
+	global TPM, MASTER_KEY, GENERATOR
+
+	options = ["Encrypt", "Decrypt", "Delete", "Exit"]
+	while True:
+		with term.cbreak():
+			print(term.clear)
+			cprint(term.center("Welcome!\n"), "blue")
+			for i, option in enumerate(options):
+				print(term.center(f"{i}: {option}"))
+			print()
+
+			for flag, name, state in [
+				(TPM, "TPM (DE)", ("🔒", "🔓")),
+				(MASTER_KEY, "Master Key (DE)", ("Loaded", "None")),
+				(GENERATOR, "Generator (E)", (str(GENERATOR), "None")),
+			]: cprint(term.center(" ".join([name, ":", state[0] if flag else state[1]])), "green" if flag else "red")
+
+			match term.inkey().lower():
+				case "0": encrypt(clipboard=GENERATOR)
+				case "1": decrypt()
+				case "2": delete()
+				case "3": cleanup()
+				case "t": TPM ^= 1
+				case "m": MASTER_KEY = None if MASTER_KEY else decrypt(clipboard=False)
+				case "g": GENERATOR = 0 if GENERATOR else int(input(term.center("Enter the length of the password: ")))
+				case "e": MASTER_KEY = None if MASTER_KEY else input(term.center("Enter your master key: "))
+				case _: input(colored(term.center("Invalid selection"), "red"))
+
+
+def get_identifier(new=False):
+	pid = getpass("Enter the secret identifier: ")
+	if pid == 'q': return 'q', 'q'
+
+	if new:
+		rep = getpass("Verify: ")
+		if pid != rep:
+			input(colored("Identifier did not match", "red"))
+			return None, None
+
+	# Salt with the master key
+	if MASTER_KEY: pid += MASTER_KEY
+
+	hid = run(["sha512sum"], failure="Could not hash identifier", i=pid)
+	if not hid: return None, None
+	hid = hid.split()[0]
+
+	exists = path.exists(f"{MOUNT}/{hid}")
+	if exists and new:
+		colored("Warning: identifier already exits. Will overwrite.", "yellow")
+	elif not exists and not new:
+		input(colored("No such identifier exists.", "red"))
+		return None, None
+	return pid, hid
+
+
+def copy(secret):
+	options = ["Copy", "Copy OATH"]
+	with term.cbreak():
+		print(term.clear)
+		cprint("Secret stored, what would you like to do!\n", "blue")
+		for i, option in enumerate(options):
+			print(f"{i}: {option}")
+		print()
+
+		match term.inkey().lower():
+			case "0":
+				run(["qdbus", "org.kde.klipper", "/klipper", "org.kde.klipper.klipper.setClipboardContents", secret])
+			case "1":
+				cprint("Generating OATH code...", "yellow", end=" ")
+				secret = run(["oathtool", "-b", "--totp", "-"], failure="Could not determine OATH value", i=secret)
+				if not secret: return
+				cprint("Done", "green")
+				run(["qdbus", "org.kde.klipper", "/klipper", "org.kde.klipper.klipper.setClipboardContents", secret])
+			case _: input(colored("Invalid selection", "red"))
+	input(colored("Copied to clipboard! Press enter to expunge! ", "blue"))
+	run(["qdbus", "org.kde.klipper", "/klipper", "org.kde.klipper.klipper.clearClipboardHistory"])
+
+
+def encrypt(clipboard=False):
+	while True:
+		with term.cbreak():
+
+			print(term.clear)
+
+			pid, hid = get_identifier(new=True)
+			if pid == 'q' and hid == 'q': return
+			if pid == None: continue
+
+			if GENERATOR:
+				cprint("Generating password...", "yellow", end=" ")
+				secret = run(["openssl", "rand", "-base64", str(GENERATOR)])
+				cprint("Done", "green")
+			else:
+				secret = getpass("Enter the secret: ")
+				if pid == 'q': return
+				rep = getpass("Verify: ")
+				if secret != rep:
+					input(colored("Secret did not match", "red"))
+
+			if TPM:
+				cprint("Sealing password...", "yellow", end=" ")
+				secret = run(["sudo", "clevis", "encrypt", "tpm2", PCR], failure="Could not seal secret!", expected=0, i=secret)
+				if not secret: continue
+				cprint("Done", "green")
+
+			cprint("Encrypting password...", "yellow", end=" ")
+			secret = run(["openssl", "aes-256-cbc","-e", "-a", "-salt", "-iter", arg.rounds, "-pass", f"pass:{pid}", "-out", f"{MOUNT}/{hid}"], failure="Could not encrypt secret", i=secret)
+			if not secret: continue
+			cprint("Done", "green")
+
+			if clipboard: copy(secret)
+
+
+
+def decrypt(clipboard=True):
+	while True:
+		with term.cbreak():
+
+			print(term.clear)
+
+			# Get the identifier
+			pid, hid = get_identifier()
+			if pid == 'q' and hid == 'q': return
+			if pid == None: continue
+
+			# Decrypt with OpenSSL
+			cprint("Decrypting password...", "yellow", end=" ")
+			secret = run(["openssl", "aes-256-cbc", "-d", "-a", "-salt", "-iter", arg.rounds, "-pass", f"pass:{pid}", "-in", f"{MOUNT}/{hid}"], failure="Could not decrypt secret")
+			if not secret: continue
+			cprint("Done", "green")
+
+			# Decrypt with TPM
+			if TPM:
+				cprint("Unsealing password...", "yellow", end=" ")
+				secret = run(["sudo", "clevis", "decrypt", "tpm2", PCR], failure="Could not unseal secret!", expected=0, i=secret)
+				if not secret: continue
+				cprint("Done", "green")
+
+			# Copy to clipboard, or return if we're dealing with the MASTER_KEY
+			if clipboard: copy(secret)
+			else: return secret
+
+
+def delete():
+	while True:
+		with term.cbreak():
+
+			print(term.clear)
+
+			pid, hid = get_identifier()
+			if pid == 'q' and hid == 'q': return
+			if pid == None: continue
+
+			if input(colored("Are you sure you want to delete this secret (YES): ", "red")) == "YES":
+				cprint("Shredding...", "yellow", end=" ")
+				result = run(["shred", "-u", f"{MOUNT}/{hid}"], failure="Could not shred! Ensure the file has been securely erased!")
+				if result is None: continue
+				cprint("Done", "green")
+
+
+if __name__ == "__main__":
+	signal(SIGINT, cleanup)
+	signal(SIGTERM, cleanup)
+
+	try:
+		setup()
+		menu()
+	except Exception as e: error(e)
+	cleanup()
