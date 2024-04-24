@@ -55,11 +55,15 @@ You'll need to ensure that the TPM + Master Key are in the same state as when en
 
 `safe` uses `klipper` as the clipboard manager. This is because `wl-clipboard` does not properly clear the clipboard on `KDE`, and thus cannot be used to reliably expunge secrets once copied.
 
+Using `oath-toolkit`, secrets can be TOTP codes, to which a one-time password can be copied from `safe`.
+
 ### Deletion
 
 Deletion takes an identifier + Master Key, and deletes the secret from the vault. You will need to type "YES" to delete the secret.
 
 Because secrets are typically rather small, its usually recommended to keep secrets, rather than deleting them, as they increase the size of the vault, and make it considerably more difficult to determine what secrets could be stored within the safe. 
+
+Secrets are deleted securely from disk by shredding the content.
 
 ### Securely Erasing Memory
 
