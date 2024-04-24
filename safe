@@ -192,7 +192,7 @@ def encrypt(clipboard=False):
 				cprint("Done", "green")
 
 			cprint("Encrypting password...", "yellow", end=" ")
-			secret = run(["openssl", "aes-256-cbc","-e", "-a", "-salt", "-iter", arg.rounds, "-pass", f"pass:{pid}", "-out", f"{MOUNT}/{hid}"], failure="Could not encrypt secret", i=secret)
+			secret = run(["openssl", "aes-256-cbc","-e", "-a", "-salt", "-iter", args.rounds, "-pass", f"pass:{pid}", "-out", f"{MOUNT}/{hid}"], failure="Could not encrypt secret", i=secret)
 			if not secret: continue
 			cprint("Done", "green")
 
@@ -213,7 +213,7 @@ def decrypt(clipboard=True):
 
 			# Decrypt with OpenSSL
 			cprint("Decrypting password...", "yellow", end=" ")
-			secret = run(["openssl", "aes-256-cbc", "-d", "-a", "-salt", "-iter", arg.rounds, "-pass", f"pass:{pid}", "-in", f"{MOUNT}/{hid}"], failure="Could not decrypt secret")
+			secret = run(["openssl", "aes-256-cbc", "-d", "-a", "-salt", "-iter", args.rounds, "-pass", f"pass:{pid}", "-in", f"{MOUNT}/{hid}"], failure="Could not decrypt secret")
 			if not secret: continue
 			cprint("Done", "green")
 
