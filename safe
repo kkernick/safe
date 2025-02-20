@@ -66,7 +66,7 @@ def setup():
 			run(["gocryptfs", VAULT, MOUNT], i=run(["systemd-ask-password", "Enter the vault password"]))
 			if path.ismount(MOUNT): break
 			cprint("Please try again", "red")
-	else:  
+	else:
 		key = run(["sudo", "handle.tpm", "-m", "unseal", "-a", args.address, "-n"], failure="Could not unseal key from tpm!")
 		mount = run(["gocryptfs", VAULT, MOUNT], failure="Sealed key is not valid!", exit=True, i=key)
 
@@ -152,16 +152,16 @@ def copy(secret):
 
 		match term.inkey().lower():
 			case "0":
-				run(["qdbus6", "org.kde.klipper", "/klipper", "org.kde.klipper.klipper.setClipboardContents", secret])
+				run(["wl-copy", secret])
 			case "1":
 				cprint("Generating OATH code...", "yellow", end=" ")
 				secret = run(["oathtool", "-b", "--totp", "-"], failure="Could not determine OATH value", i=secret)
 				if not secret: return
 				cprint("Done", "green")
-				run(["qdbus6", "org.kde.klipper", "/klipper", "org.kde.klipper.klipper.setClipboardContents", secret])
+				run(["wl-copy", secret])
 			case _: input(colored("Invalid selection", "red"))
 	input(colored("Copied to clipboard! Press enter to expunge! ", "blue"))
-	run(["qdbus6", "org.kde.klipper", "/klipper", "org.kde.klipper.klipper.clearClipboardHistory"])
+	run(["wl-copy", "EXPUNGED"])
 
 
 def encrypt(clipboard=False):

@@ -1,11 +1,11 @@
 pkgname=safe-tpm2-git
 pkgdesc="Securely store secrets in a safe"
-pkgver=r4.ac737ac
+pkgver=r7.4202a50
 pkgrel=1
 
 source=("git+https://github.com/kkernick/safe.git")
 sha256sums=("SKIP")
-depends=(systemd clevis openssl python-blessed python-termcolor gocryptfs sudo oath-toolkit plasma-workspace qt6-tools)
+depends=(systemd clevis openssl python-blessed python-termcolor gocryptfs sudo oath-toolkit wl-clipboard)
 optdepends=(handle-tpm)
 arch=("any")
 provides=("safe-tpm2")

@@ -1,6 +1,6 @@
 pkgbase = safe-tpm2-git
 	pkgdesc = Securely store secrets in a safe
-	pkgver = 1
+	pkgver = r7.4202a50
 	pkgrel = 1
 	arch = any
 	depends = systemd

@@ -6,7 +6,7 @@ Securely store secrets
 
 On Arch-Based Distributions, download the PKGBUILD and run `makepkg -si`
 
-For others, ensure that `systemd` `clevis` `openssl` `python-blessed` `python-termcolor` `gocryptfs` `sudo` `oath-toolkit` `plasma-workspace` and `qt6-tools` are installed, and `chmod +x` the script.
+For others, ensure that `systemd` `clevis` `openssl` `python-blessed` `python-termcolor` `gocryptfs` `sudo` `oath-toolkit` `wl-clipboard` are installed, and `chmod +x` the script.
 
 ## Usage
 
@@ -37,7 +37,7 @@ All can be toggled freely with their associated key.
 
 `safe` stores secrets by using an identifier scheme. In this, a provided identifier will be provided first, whose value will be used to directly encrypt the secret. Then, the identifier is hashed using a secure hashing algorithm (SHA512), which is then used as the filename of the secret. Therefore, the identifier is not only needed to decrypt the secret, but to even know what secrets are stored. Simply looking at the content of the safe (Assuming its been mounted by `gocryptfs`) will make it impossible to know what files are associated with what secret.
 
-Identifiers, therefore, must be unique, secure strings--treat them like a password. For example, to store the password to your email, don't use `email` as the identifier, create a random identifier than can be remembered. 
+Identifiers, therefore, must be unique, secure strings--treat them like a password. For example, to store the password to your email, don't use `email` as the identifier, create a random identifier than can be remembered.
 
 If a generator is used, `safe` will securely generate a secret using `openssl` instead of needing to provide one directly.
 
@@ -53,15 +53,13 @@ Decryption works in inverse of encryption. An identifier is provided, and if tha
 
 You'll need to ensure that the TPM + Master Key are in the same state as when encrypted, otherwise `safe` will be unable to find/decrypt the secret.
 
-`safe` uses `klipper` as the clipboard manager. This is because `wl-clipboard` does not properly clear the clipboard on `KDE`, and thus cannot be used to reliably expunge secrets once copied.
-
 Using `oath-toolkit`, secrets can be TOTP codes, to which a one-time password can be copied from `safe`.
 
 ### Deletion
 
 Deletion takes an identifier + Master Key, and deletes the secret from the vault. You will need to type "YES" to delete the secret.
 
-Because secrets are typically rather small, its usually recommended to keep secrets, rather than deleting them, as they increase the size of the vault, and make it considerably more difficult to determine what secrets could be stored within the safe. 
+Because secrets are typically rather small, its usually recommended to keep secrets, rather than deleting them, as they increase the size of the vault, and make it considerably more difficult to determine what secrets could be stored within the safe.
 
 Secrets are deleted securely from disk by shredding the content.
 
