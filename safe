@@ -161,7 +161,7 @@ def copy(secret):
 				sub_run(["wl-copy", secret])
 			case _: input(colored("Invalid selection", "red"))
 	input(colored("Copied to clipboard! Press enter to expunge! ", "blue"))
-	run(["wl-copy", "EXPUNGED"])
+	sub_run(["wl-copy", "EXPUNGED"])
 
 
 def encrypt(clipboard=False):
