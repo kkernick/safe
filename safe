@@ -152,13 +152,13 @@ def copy(secret):
 
 		match term.inkey().lower():
 			case "0":
-				run(["wl-copy", secret])
+				sub_run(["wl-copy", secret])
 			case "1":
 				cprint("Generating OATH code...", "yellow", end=" ")
 				secret = run(["oathtool", "-b", "--totp", "-"], failure="Could not determine OATH value", i=secret)
 				if not secret: return
 				cprint("Done", "green")
-				run(["wl-copy", secret])
+				sub_run(["wl-copy", secret])
 			case _: input(colored("Invalid selection", "red"))
 	input(colored("Copied to clipboard! Press enter to expunge! ", "blue"))
 	run(["wl-copy", "EXPUNGED"])

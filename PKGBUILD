@@ -1,6 +1,6 @@
 pkgname=safe-tpm2-git
 pkgdesc="Securely store secrets in a safe"
-pkgver=r7.4202a50
+pkgver=r9.a089449
 pkgrel=1
 
 source=("git+https://github.com/kkernick/safe.git")
